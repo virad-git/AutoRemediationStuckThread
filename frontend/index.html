@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Remediation - Stuck Thread Manager</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <h1>🔧 Auto Remediation System</h1>
+                <p>WebLogic Stuck Thread Remediation</p>
+            </div>
+            <div class="navbar-menu">
+                <button id="healthCheckBtn" class="btn btn-secondary">Check System Health</button>
+                <span id="healthStatus" class="health-indicator"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container main-content">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-button" data-tab="new-job">New Restart Job</button>
+            <button class="tab-button" data-tab="jobs-list">Active Jobs</button>
+            <button class="tab-button" data-tab="analytics">Analytics</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>System Overview</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Active Jobs</span>
+                            <span class="stat-value" id="activeJobsCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Successful</span>
+                            <span class="stat-value success" id="successCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Failed</span>
+                            <span class="stat-value error" id="failedCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Pending</span>
+                            <span class="stat-value warning" id="pendingCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Quick Actions</h2>
+                    <div class="quick-actions">
+                        <button class="btn btn-primary" onclick="switchTab('new-job')">
+                            ➕ Create New Job
+                        </button>
+                        <button class="btn btn-secondary" onclick="refreshJobs()">
+                            🔄 Refresh Jobs
+                        </button>
+                        <button class="btn btn-info" onclick="showEnvironments()">
+                            📋 View Environments
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>System Status</h2>
+                <div id="systemStatus" class="status-table"></div>
+            </div>
+        </div>
+
+        <!-- New Job Tab -->
+        <div id="new-job" class="tab-content">
+            <div class="card">
+                <h2>Submit New Restart Job</h2>
+                <form id="restartForm">
+                    <div class="form-group">
+                        <label for="environment">Environment *</label>
+                        <select id="environment" required>
+                            <option value="">Select Environment</option>
+                            <option value="DEV">DEV</option>
+                            <option value="TEST">TEST</option>
+                            <option value="PREPROD">PREPROD</option>
+                            <option value="PROD">PROD</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="serverName">Server Name (Optional)</label>
+                        <input type="text" id="serverName" placeholder="e.g., weblogic-01">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reason">Reason for Restart</label>
+                        <textarea id="reason" rows="3" placeholder="Describe the stuck thread issue..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="escalationLevel">Escalation Level</label>
+                        <div class="escalation-slider">
+                            <input type="range" id="escalationLevel" min="1" max="5" value="1" class="slider">
+                            <div class="escalation-labels">
+                                <span>Low</span>
+                                <span>Medium</span>
+                                <span>High</span>
+                                <span>Critical</span>
+                                <span>Emergency</span>
+                            </div>
+                            <div class="selected-level" id="selectedLevel">Level: 1</div>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary btn-large">Submit Restart Job</button>
+                        <button type="reset" class="btn btn-secondary btn-large">Clear Form</button>
+                    </div>
+                </form>
+
+                <div id="analysisResult" class="analysis-result" style="display:none;">
+                    <h3>📊 LLM Analysis</h3>
+                    <div id="analysisText"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs List Tab -->
+        <div id="jobs-list" class="tab-content">
+            <div class="card">
+                <div class="jobs-header">
+                    <h2>Active Jobs</h2>
+                    <div class="jobs-filter">
+                        <select id="environmentFilter" onchange="refreshJobs()">
+                            <option value="">All Environments</option>
+                            <option value="DEV">DEV</option>
+                            <option value="TEST">TEST</option>
+                            <option value="PREPROD">PREPROD</option>
+                            <option value="PROD">PROD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="jobsList" class="jobs-table"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Job Status Distribution</h2>
+                    <div id="statusChart" class="chart-container">
+                        <canvas id="statusCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Environment Breakdown</h2>
+                    <div id="envChart" class="chart-container">
+                        <canvas id="envCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Statistics</h2>
+                <div class="stats-detailed">
+                    <table>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                        <tr>
+                            <td>Total Jobs</td>
+                            <td id="totalJobs">0</td>
+                        </tr>
+                        <tr>
+                            <td>Success Rate</td>
+                            <td id="successRate">0%</td>
+                        </tr>
+                        <tr>
+                            <td>Average Duration</td>
+                            <td id="avgDuration">0s</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Job Details -->
+    <div id="jobModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Job Details</h2>
+            <div id="modalBody"></div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="loadJobLogs()">View Logs</button>
+                <button class="btn btn-danger" id="cancelJobBtn" onclick="cancelJob()">Cancel Job</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Logs -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeLogsModal()">&times;</span>
+            <h2>Job Logs</h2>
+            <pre id="logsContent"></pre>
+            <button class="btn btn-secondary" onclick="closeLogsModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
